@@ -3,8 +3,28 @@ import time
 import json
 import argparse
 import sys
+import logging
+from logging.handlers import RotatingFileHandler
+
+# Configurar logging (archivo + terminal)
+log_file = "github_action.log"
+
+# Configurar rotación de logs (1MB máx, 5 archivos)
+file_handler = RotatingFileHandler(log_file, maxBytes=1_000_000, backupCount=5)
+file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+
+# Configurar salida en terminal
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setFormatter(logging.Formatter("%(message)s"))
+
+# Configurar logging global
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[file_handler, console_handler]
+)
 
 GITHUB_API_URL = "https://api.github.com"
+
 
 class GitHubActionRunner:
     def __init__(self, token, repo, workflow_id, branch="main", inputs=None):
@@ -19,45 +39,59 @@ class GitHubActionRunner:
         }
 
     def trigger_workflow(self):
-        """Triggers the GitHub Action workflow and returns True if successful."""
+        """Triggers the GitHub Action workflow."""
         url = f"{GITHUB_API_URL}/repos/{self.repo}/actions/workflows/{self.workflow_id}/dispatches"
         payload = {"ref": self.branch}
         if self.inputs:
             payload["inputs"] = self.inputs
 
+        logging.info(f"🔹 Triggering workflow {self.workflow_id} on branch {self.branch}...")
         response = requests.post(url, headers=self.headers, json=payload)
 
         if response.status_code != 204:
+            logging.error(f"❌ Failed to trigger workflow: {response.text}")
             raise Exception(f"Failed to trigger workflow: {response.text}")
 
-        print("✅ Workflow triggered successfully.")
+        logging.info("✅ Workflow triggered successfully.")
         return True
 
     def get_latest_run(self):
         """Fetches the latest run of the workflow."""
         url = f"{GITHUB_API_URL}/repos/{self.repo}/actions/runs"
-       
+
+        logging.info("🔹 Fetching latest workflow run...")
         for _ in range(10):  # Retry logic
             response = requests.get(url, headers=self.headers)
             if response.status_code != 200:
+                logging.error(f"❌ Failed to fetch workflow runs: {response.text}")
                 raise Exception(f"Failed to fetch workflow runs: {response.text}")
 
             runs = response.json().get("workflow_runs", [])
             for run in runs:
-                if run["name"] == self.workflow_id and run["head_branch"] == self.branch:
+                #logging.info(f"🔄 {run['id']} -- {run['name']} -- {self.workflow_id }")
+                # if run["name"] == self.workflow_id and run["head_branch"] == self.branch:
+                #     logging.info(f"✅ Found workflow run: ID {run['id']}")
+                #     return run
+                                
+                if run["path"].endswith(self.workflow_id) and run["head_branch"] == self.branch:
+                    logging.info(f"✅ Found workflow run: ID {run['id']}")
                     return run
 
+
+            logging.info("🔄 No matching run found, retrying in 5 seconds...")
             time.sleep(5)
 
         raise Exception("No recent workflow run found.")
 
     def wait_for_completion(self, run_id):
-        """Waits for the workflow run to complete and returns the result."""
+        """Waits for the workflow run to complete."""
         url = f"{GITHUB_API_URL}/repos/{self.repo}/actions/runs/{run_id}"
-       
+
+        logging.info(f"🔄 Waiting for workflow {run_id} to complete...")
         while True:
             response = requests.get(url, headers=self.headers)
             if response.status_code != 200:
+                logging.error(f"❌ Failed to fetch run status: {response.text}")
                 raise Exception(f"Failed to fetch run status: {response.text}")
 
             run_data = response.json()
@@ -66,7 +100,10 @@ class GitHubActionRunner:
             logs_url = run_data["html_url"]
             duration = run_data.get("run_duration_ms", 0) / 1000  # Convert to seconds
 
+            logging.info(f"🔹 Current status: {status}")
+
             if status == "completed":
+                logging.info(f"✅ Workflow completed with conclusion: {conclusion}")
                 return {
                     "status": status,
                     "conclusion": conclusion,
@@ -84,6 +121,7 @@ class GitHubActionRunner:
 
         latest_run = self.get_latest_run()
         result = self.wait_for_completion(latest_run["id"])
+        logging.info(f"{result}")
         return result
 
 
@@ -106,7 +144,9 @@ if __name__ == "__main__":
             inputs=args.inputs
         )
         result = runner.run()
-        print(json.dumps(result))  # Terraform can parse this output
+        logging.info(f"{result}")
+        print(json.dumps(result))  # Terraform puede capturar este output
     except Exception as e:
+        logging.error(f"❌ Error: {e}")
         print(json.dumps({"error": str(e)}))
         sys.exit(1)

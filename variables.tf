@@ -8,12 +8,12 @@ variable "gh_repository" {
 }
 
 variable "gh_workflow_file" {
-  type = string
+  type    = string
+  default = "example.yaml"
 }
 
-variable "gh_workflow_inputs" {
-  type    = string
-  default = "{}"
+variable "github_action_inputs" {
+  type = map(string)
 }
 
 variable "gh_branch" {
