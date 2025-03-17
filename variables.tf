@@ -7,7 +7,7 @@ variable "gh_repository" {
     type = string
 }
 
-variable "gh_workflow"_file {
+variable "gh_workflow_file" {
     type = string
 }
 
