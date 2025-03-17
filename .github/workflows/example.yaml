@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (staging/production)"
+        required: true
+        default: "staging"
+      version:
+        description: "Application version"
+        required: false
+        default: "latest"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_status: ${{ steps.set-output.outputs.status }}
+      deploy_message: ${{ steps.set-output.outputs.message }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Print Inputs
+        run: |
+          echo "🚀 Deploying to environment: ${{ github.event.inputs.environment }}"
+          echo "📦 Using version: ${{ github.event.inputs.version }}"
+
+      - name: Simulate Deployment
+        run: |
+          echo "🔄 Deploying..."
+          sleep 5
+          echo "✅ Deployment completed successfully!"
+
+      - name: Save Deployment Log
+        run: |
+          echo '{"status": "success", "message": "Deployment completed"}' > result.json
+
+      - name: Upload Logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-log
+          path: result.json
+
+      - name: Set Output Variables
+        id: set-output
+        run: |
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "message=Deployment completed" >> "$GITHUB_OUTPUT"
+
+
+# curl -X POST https://api.github.com/repos/OWNER/REPO/actions/workflows/example.yaml/dispatches \
+#   -H "Accept: application/vnd.github.v3+json" \
+#   -H "Authorization: token YOUR_GITHUB_PAT" \
+#   -d '{
+#     "ref": "main",
+#     "inputs": {
+#       "environment": "production",
+#       "version": "1.2.3"
+#     }
+#   }'
