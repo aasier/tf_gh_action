@@ -1,22 +1,22 @@
 variable "github_token" {
-    type = string
-    sensitive = true
+  type      = string
+  sensitive = true
 }
 
 variable "gh_repository" {
-    type = string
+  type = string
 }
 
 variable "gh_workflow_file" {
-    type = string
+  type = string
 }
 
 variable "gh_workflow_inputs" {
-    type = string
-    default = "{}"
+  type    = string
+  default = "{}"
 }
 
 variable "gh_branch" {
-    type = string
+  type = string
 }
 
